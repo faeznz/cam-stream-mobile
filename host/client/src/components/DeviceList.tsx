@@ -153,7 +153,10 @@ export default function DeviceList({ devices }: { devices: Device[] }) {
                 playsInline
                 muted
                 className="w-full h-full object-cover"
-                ref={(video) => { if (video) video.srcObject = streams.get(device.deviceId)!.stream }}
+                ref={(video) => {
+                  const stream = streams.get(device.deviceId)!.stream
+                  if (video && video.srcObject !== stream) video.srcObject = stream
+                }}
               />
             ) : (
               <span className="text-gray-400 text-sm">Waiting for stream...</span>

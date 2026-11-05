@@ -37,10 +37,10 @@ independently of Cloudflare's HTTP proxy. TURN credentials are sent by the
 signaling backend when a peer registers. Only register trusted devices: the
 existing device signaling endpoint is not authenticated.
 
-The shared Traefik currently uses TLS-ALPN certificate validation. This requires
-direct access to origin port 443 during issuance/renewal; use DNS-only while
-issuing certificates, or configure a DNS challenge if keeping Cloudflare proxy
-enabled permanently. Existing Traefik configuration is managed separately.
+The shared Traefik uses HTTP-01 certificate validation on its `web` entrypoint
+so certificate issuance works through Cloudflare's HTTP proxy. Keep port 80
+reachable and do not block `/.well-known/acme-challenge/` in Cloudflare rules.
+The Traefik Compose configuration is managed separately in `/home/faeznz/traefik`.
 
 ## Android
 
