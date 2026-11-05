@@ -58,7 +58,7 @@ app.get('/api/devices', async (c) => {
       devices.push(JSON.parse(raw) as Device)
     }
   }
-  return c.json({ devices })
+  return c.json({ devices: devices.sort((a, b) => a.registeredAt - b.registeredAt || a.deviceId.localeCompare(b.deviceId)) })
 })
 
 app.delete('/api/devices/:id', async (c) => {
@@ -86,6 +86,7 @@ type Client = {
 }
 
 const clients = new Map<string, Client>()
+const viewers = new Map<string, string>()
 const alive = new WeakSet<WebSocket>()
 const heartbeat = setInterval(() => {
   for (const ws of wss.clients) {
@@ -105,10 +106,11 @@ function relay(targetDeviceId: string, payload: unknown) {
 
 wss.on('connection', (ws) => {
   let currentDeviceId: string | null = null
+  let isViewer = false
   alive.add(ws)
   ws.on('pong', () => {
     alive.add(ws)
-    if (currentDeviceId && currentDeviceId !== 'host-frontend') void redis.expire(`device:${currentDeviceId}`, 120)
+    if (currentDeviceId && !isViewer) void redis.expire(`device:${currentDeviceId}`, 120)
   })
 
   ws.on('message', (raw) => {
@@ -121,10 +123,12 @@ wss.on('connection', (ws) => {
 
     switch (data.type) {
       case 'register': {
+        if (typeof data.deviceId !== 'string' || !data.deviceId || data.deviceId.length > 150) return
         currentDeviceId = data.deviceId
+        isViewer = data.role === 'viewer' || data.deviceId === 'host-frontend'
         clients.set(data.deviceId, { ws, deviceId: data.deviceId })
         ws.send(JSON.stringify({ type: 'registered', iceServers }))
-        if (data.deviceId === 'host-frontend') break
+        if (isViewer) break
 
         const device: Device = {
           deviceId: data.deviceId,
@@ -139,7 +143,10 @@ wss.on('connection', (ws) => {
       case 'answer':
       case 'ice-candidate': {
         if (data.targetDeviceId) {
-          relay(data.targetDeviceId, {
+          const target = data.targetDeviceId === 'host-frontend' && currentDeviceId
+            ? viewers.get(currentDeviceId) || data.targetDeviceId
+            : data.targetDeviceId
+          relay(target, {
             type: data.type,
             sourceDeviceId: currentDeviceId,
             ...(data.type === 'ice-candidate' ? { candidate: data.candidate } : { sdp: data.sdp }),
@@ -150,7 +157,9 @@ wss.on('connection', (ws) => {
 
       case 'start-stream':
       case 'stop-stream': {
-        if (data.targetDeviceId) {
+        if (data.targetDeviceId && currentDeviceId) {
+          if (data.type === 'start-stream') viewers.set(data.targetDeviceId, currentDeviceId)
+          else if (viewers.get(data.targetDeviceId) === currentDeviceId) viewers.delete(data.targetDeviceId)
           relay(data.targetDeviceId, {
             type: data.type,
             sourceDeviceId: currentDeviceId,
@@ -161,7 +170,7 @@ wss.on('connection', (ws) => {
       }
 
       case 'ping':
-        if (currentDeviceId && currentDeviceId !== 'host-frontend') void redis.expire(`device:${currentDeviceId}`, 120)
+        if (currentDeviceId && !isViewer) void redis.expire(`device:${currentDeviceId}`, 120)
         ws.send(JSON.stringify({ type: 'pong' }))
         break
 
@@ -174,17 +183,18 @@ wss.on('connection', (ws) => {
     if (currentDeviceId) {
       if (clients.get(currentDeviceId)?.ws !== ws) return
       clients.delete(currentDeviceId)
+      viewers.delete(currentDeviceId)
+      for (const [deviceId, viewerId] of viewers) {
+        if (viewerId === currentDeviceId) {
+          relay(deviceId, { type: 'stop-stream', sourceDeviceId: currentDeviceId, targetDeviceId: deviceId })
+          viewers.delete(deviceId)
+        }
+      }
       void redis.del(`device:${currentDeviceId}`)
     }
   })
 
-  ws.on('error', () => {
-    if (currentDeviceId) {
-      if (clients.get(currentDeviceId)?.ws !== ws) return
-      clients.delete(currentDeviceId)
-      void redis.del(`device:${currentDeviceId}`)
-    }
-  })
+  ws.on('error', () => ws.close())
 })
 
 console.log(`host-server listening on :${PORT}`)

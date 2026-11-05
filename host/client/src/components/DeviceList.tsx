@@ -43,7 +43,7 @@ export default function DeviceList({ devices, onAddDevice }: { devices: Device[]
       wsRef.current = socket
       let iceServers: RTCIceServer[] = []
       const candidates = new Map<string, RTCIceCandidateInit[]>()
-      socket.onopen = () => socket.send(JSON.stringify({ type: 'register', deviceId: 'host-frontend', name: 'Dashboard' }))
+      socket.onopen = () => socket.send(JSON.stringify({ type: 'register', deviceId: `host-frontend:${crypto.randomUUID()}`, name: 'Dashboard', role: 'viewer' }))
       socket.onmessage = async event => {
         let message: any
         try { message = JSON.parse(event.data) } catch { return }
