@@ -4,63 +4,40 @@ export default function LoginForm({ onLogin }: { onLogin: () => void }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault()
     setError('')
-
-    const creds = btoa(`${username}:${password}`)
+    setBusy(true)
     try {
-      const res = await fetch('/api/devices', {
-        headers: { Authorization: `Basic ${creds}` },
-      })
-      if (res.status === 401) {
-        setError('Invalid username or password')
-        return
-      }
-      if (!res.ok) throw new Error('Login failed')
-      localStorage.setItem('cam_auth', creds)
+      const credentials = btoa(`${username}:${password}`)
+      const response = await fetch('/api/devices', { headers: { Authorization: `Basic ${credentials}` } })
+      if (response.status === 401) { setError('Nama pengguna atau kata sandi tidak sesuai.'); return }
+      if (!response.ok) throw new Error('Login failed')
+      localStorage.setItem('cam_auth', credentials)
       onLogin()
     } catch {
-      setError('Login failed')
+      setError('Belum dapat masuk. Periksa koneksi Anda lalu coba lagi.')
+    } finally {
+      setBusy(false)
     }
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-6 text-center">Cam Stream Host</h1>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Username</label>
-            <input
-              type="text"
-              className="mt-1 block w-full border rounded px-3 py-2"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Password</label>
-            <input
-              type="password"
-              className="mt-1 block w-full border rounded px-3 py-2"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-            disabled={!username || !password}
-          >
-            Login
-          </button>
+    <main className="login-shell">
+      <div className="login-panel">
+        <a href="/" className="app-brand" aria-label="Cam Stream, halaman utama">Cam<span>Stream</span></a>
+        <h1>Masuk ke monitor kamera</h1>
+        <p>Kelola HP yang terhubung dan pantau beberapa kamera dalam satu layar.</p>
+        <form onSubmit={handleSubmit} aria-busy={busy}>
+          <div className="login-field"><label htmlFor="username">Nama pengguna</label><input id="username" name="username" autoComplete="username" value={username} onChange={event => setUsername(event.target.value)} required /></div>
+          <div className="login-field"><label htmlFor="password">Kata sandi</label><input id="password" name="password" type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} required /></div>
+          {error && <p role="alert" className="notice notice-error">{error}</p>}
+          <button className="button button-primary" type="submit" disabled={busy || !username || !password}>{busy ? 'Memeriksa akun…' : 'Masuk ke dashboard'}</button>
         </form>
       </div>
-    </div>
+      <p className="login-caption">Cam Stream · Monitor kamera Android</p>
+    </main>
   )
 }

@@ -71,6 +71,15 @@ button:disabled { cursor: not-allowed; }
 .dashboard-footer { color: #526078; margin: 28px 0 8px; font-size: .75rem; line-height: 1.7; }
 .notice { padding: 14px 18px; border-radius: 8px; margin-bottom: 20px; font-size: .875rem; }
 .notice-error { color: #9f1239; background: #fff1f2; border: 1px solid #be4961; }
+.login-shell { min-height: 100dvh; padding: 32px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.login-panel { width: 100%; max-width: 440px; background: white; border: 1px solid #dde3eb; border-radius: 14px; padding: 28px 24px; }
+.login-panel h1 { font-size: clamp(1.4rem, 4vw, 1.8rem); line-height: 1.3; letter-spacing: -.035em; font-weight: 650; margin-top: 32px; }
+.login-panel > p { color: #526078; font-size: .9rem; line-height: 1.7; margin: 12px 0 28px; }
+.login-field { margin-bottom: 20px; }
+.login-field label { display: block; font-size: .875rem; font-weight: 600; margin-bottom: 8px; }
+.login-field input { width: 100%; min-height: 48px; border: 1px solid #8490a3; border-radius: 7px; padding: 10px 12px; color: #172033; background: white; }
+.login-panel form > .button { width: 100%; }
+.login-caption { font-size: .75rem; color: #526078; margin-top: 24px; text-align: center; }
 @media (min-width: 640px) {
   .dashboard-main { padding: 40px 32px; }
   .app-header { padding-left: max(32px, calc((100vw - 1504px) / 2)); padding-right: max(32px, calc((100vw - 1504px) / 2)); }
