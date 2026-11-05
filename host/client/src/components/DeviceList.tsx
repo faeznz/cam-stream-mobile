@@ -22,13 +22,14 @@ export default function DeviceList({ devices }: { devices: Device[] }) {
     }, 30000)
     wsRef.current = ws
     const pcMap = new Map<string, StreamState>()
+    const pendingCandidates = new Map<string, RTCIceCandidateInit[]>()
 
     ws.onopen = () => {
       console.log('Host frontend WS connected')
       ws.send(JSON.stringify({ type: 'register', deviceId: 'host-frontend', name: 'Host Frontend' }))
     }
 
-    ws.onmessage = (event) => {
+    ws.onmessage = async (event) => {
       let msg: any
       try {
         msg = JSON.parse(event.data)
@@ -64,6 +65,10 @@ export default function DeviceList({ devices }: { devices: Device[] }) {
           }
 
           pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp }))
+            .then(async () => {
+              for (const candidate of pendingCandidates.get(sourceDeviceId) || []) await pc.addIceCandidate(candidate)
+              pendingCandidates.delete(sourceDeviceId)
+            })
             .then(() => pc.createAnswer())
             .then((answer) => pc.setLocalDescription(answer))
             .then(() => {
@@ -82,8 +87,10 @@ export default function DeviceList({ devices }: { devices: Device[] }) {
         case 'ice-candidate': {
           const { sourceDeviceId, candidate } = msg
           const state = pcMap.get(sourceDeviceId)
-          if (state && candidate) {
+          if (state?.pc.remoteDescription && candidate) {
             state.pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.error)
+          } else if (candidate) {
+            pendingCandidates.set(sourceDeviceId, [...(pendingCandidates.get(sourceDeviceId) || []), candidate])
           }
           break
         }

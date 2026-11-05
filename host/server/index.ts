@@ -86,6 +86,15 @@ type Client = {
 }
 
 const clients = new Map<string, Client>()
+const alive = new WeakSet<WebSocket>()
+const heartbeat = setInterval(() => {
+  for (const ws of wss.clients) {
+    if (!alive.has(ws)) { ws.terminate(); continue }
+    alive.delete(ws)
+    ws.ping()
+  }
+}, 30000)
+wss.on('close', () => clearInterval(heartbeat))
 
 function relay(targetDeviceId: string, payload: unknown) {
   const target = clients.get(targetDeviceId)
@@ -96,6 +105,11 @@ function relay(targetDeviceId: string, payload: unknown) {
 
 wss.on('connection', (ws) => {
   let currentDeviceId: string | null = null
+  alive.add(ws)
+  ws.on('pong', () => {
+    alive.add(ws)
+    if (currentDeviceId && currentDeviceId !== 'host-frontend') void redis.expire(`device:${currentDeviceId}`, 120)
+  })
 
   ws.on('message', (raw) => {
     let data: any
