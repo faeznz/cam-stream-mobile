@@ -1,0 +1,69 @@
+services:
+  traefik:
+    image: traefik:v2.11
+    command:
+      - --api.insecure=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --providers.docker=true
+      - --certificatesresolvers.le.acme.tlschallenge=true
+      - --certificatesresolvers.le.acme.email=admin@faeznz.my.id
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./letsencrypt:/letsencrypt
+
+  host-server:
+    build: ./host/server
+    environment:
+      - PORT=3000
+      - REDIS_URL=redis://redis:6379
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - TURN_URL=turn:cam.faeznz.my.id:3478
+      - TURN_USERNAME=${TURN_USERNAME}
+      - TURN_PASSWORD=${TURN_PASSWORD}
+      - VITE_WSS_URL=wss://api.cam.faeznz.my.id/ws
+    depends_on:
+      - redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.host-api.rule=Host(`api.cam.faeznz.my.id`)"
+      - "traefik.http.routers.host-api.entrypoints=websecure"
+      - "traefik.http.routers.host-api.tls.certresolver=le"
+      - "traefik.http.services.host-api.loadbalancer.server.port=3000"
+
+  host-client:
+    build: ./host/client
+    environment:
+      - VITE_API_URL=https://api.cam.faeznz.my.id
+      - VITE_WSS_URL=wss://api.cam.faeznz.my.id/ws
+    depends_on:
+      - host-server
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.host-web.rule=Host(`cam.faeznz.my.id`)"
+      - "traefik.http.routers.host-web.entrypoints=websecure"
+      - "traefik.http.routers.host-web.tls.certresolver=le"
+      - "traefik.http.services.host-web.loadbalancer.server.port=80"
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+
+  coturn:
+    image: coturn/coturn:4.5.2
+    command: sh /etc/coturn/docker-entrypoint.sh
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "5349:5349/udp"
+      - "5349:5349/tcp"
+    volumes:
+      - ./coturn/docker-entrypoint.sh:/etc/coturn/docker-entrypoint.sh:ro
+    environment:
+      - TURN_USER=${TURN_USERNAME}
+      - TURN_PASS=${TURN_PASSWORD}
