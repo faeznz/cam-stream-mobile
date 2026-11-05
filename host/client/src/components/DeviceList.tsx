@@ -11,10 +11,25 @@ export default function DeviceList({ devices, onAddDevice }: { devices: Device[]
   const [streams, setStreams] = useState<Map<string, StreamState>>(new Map())
   const [statuses, setStatuses] = useState<Record<string, Status>>({})
   const [connected, setConnected] = useState(false)
+  const [brightness, setBrightness] = useState<Record<string, number>>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('cam_brightness') || '{}')
+      if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return {}
+      return Object.fromEntries(Object.entries(saved).filter(([, value]) => typeof value === 'number' && value >= 100 && value <= 250)) as Record<string, number>
+    } catch { return {} }
+  })
   const wsRef = useRef<WebSocket | null>(null)
   const peers = useRef(new Map<string, StreamState>())
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
   const statusesRef = useRef(statuses)
+
+  useEffect(() => {
+    try { localStorage.setItem('cam_brightness', JSON.stringify(brightness)) } catch { /* Brightness still works when browser storage is unavailable. */ }
+  }, [brightness])
+
+  function adjustBrightness(id: string, value: number) {
+    setBrightness(previous => ({ ...previous, [id]: value }))
+  }
 
   function updateStatus(id: string, status: Status) {
     statusesRef.current = { ...statusesRef.current, [id]: status }
@@ -146,12 +161,24 @@ export default function DeviceList({ devices, onAddDevice }: { devices: Device[]
           {devices.map((device, index) => {
             const status = statuses[device.deviceId] || 'waiting'
             const running = status === 'connecting' || status === 'streaming'
+            const level = brightness[device.deviceId] || 100
             return (
               <article className="camera-card" key={device.deviceId} aria-label={`Kamera ${device.name}`}>
                 <div className="camera-card-heading"><div className="camera-identity"><span className="camera-number">{String(index + 1).padStart(2, '0')}</span><h3>{device.name}</h3></div><span className={`camera-status status-${status}`}>{statusLabels[status]}</span></div>
                 <div className="video-stage">
-                  {streams.has(device.deviceId) && <video autoPlay playsInline muted ref={video => { const stream = streams.get(device.deviceId)!.stream; if (video && video.srcObject !== stream) video.srcObject = stream }} aria-label={`Video ${device.name}`} />}
+                  {streams.has(device.deviceId) && <video autoPlay playsInline muted style={{ filter: `brightness(${level / 100})` }} ref={video => { const stream = streams.get(device.deviceId)!.stream; if (video && video.srcObject !== stream) video.srcObject = stream }} aria-label={`Video ${device.name}`} />}
                   {status !== 'streaming' && <div className="video-placeholder"><span className="placeholder-symbol" aria-hidden="true">{status === 'connecting' ? '◌' : '▣'}</span><p>{status === 'connecting' ? 'Menunggu video dari HP…' : status === 'error' ? 'Video belum tersambung' : 'Kamera siap saat Anda butuhkan'}</p><small>{status === 'error' ? 'Pastikan layanan kamera aktif dan izin kamera diberikan.' : status === 'connecting' ? 'Layanan kamera di HP sedang menyiapkan video.' : 'Tekan Nyalakan untuk mulai menonton.'}</small></div>}
+                </div>
+                <div className="camera-enhance">
+                  <div className="enhance-heading">
+                    <label htmlFor={`brightness-${device.deviceId}`}>Kecerahan tampilan</label>
+                    <output htmlFor={`brightness-${device.deviceId}`}>{level}%</output>
+                  </div>
+                  <div className="enhance-controls">
+                    <button className="button button-secondary enhance-button" aria-label={`Terangkan ${device.name}`} aria-pressed={level > 100} onClick={() => adjustBrightness(device.deviceId, level > 100 ? 100 : 160)}>Terangkan</button>
+                    <input id={`brightness-${device.deviceId}`} type="range" min="100" max="250" step="5" value={level} aria-label={`Kecerahan ${device.name}`} aria-valuetext={`${level} persen`} onChange={event => adjustBrightness(device.deviceId, Number(event.target.value))} />
+                    <button className="button button-quiet" aria-label={`Reset kecerahan ${device.name}`} disabled={level === 100} onClick={() => adjustBrightness(device.deviceId, 100)}>Reset</button>
+                  </div>
                 </div>
                 <div className="camera-card-footer"><span className="device-id" title={device.deviceId}>{device.deviceId}</span><button className={`button ${running ? 'button-stop' : 'button-secondary'}`} disabled={!connected} aria-label={`${running ? 'Hentikan' : 'Nyalakan'} ${device.name}`} onClick={() => running ? stopStream(device.deviceId) : startStream(device.deviceId)}>{running ? 'Hentikan' : status === 'error' ? 'Coba lagi' : 'Nyalakan'}</button></div>
               </article>

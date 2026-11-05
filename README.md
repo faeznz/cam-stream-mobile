@@ -101,6 +101,14 @@ To provide the dashboard APK download, copy the local APK to
 `/home/faeznz/cam-stream-mobile/downloads/cam-stream-mobile.apk` on the VPS.
 Compose mounts that folder read-only into Nginx. APKs are excluded from Git.
 
+### Brightness enhancement
+
+Each camera card has a **Terangkan** toggle (160%), a 100–250% display-brightness
+slider, and **Reset** (100%). Settings are independent per device and saved in
+the current browser. The filter applies only to the displayed video, so it does
+not restart the stream or alter the phone sensor's exposure. No APK update is
+required for these dashboard controls.
+
 ## Smoke check
 
 Run from the repository root with a configured local `.env`:
