@@ -64,10 +64,10 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
               <ol>
                 <li>Unduh dan pasang APK Cam Stream di setiap HP Android.</li>
                 <li>Buka aplikasi dan beri nama yang mudah dikenali, misalnya sesuai lokasi kamera.</li>
-                <li>Gunakan alamat di samping, lalu tekan Register. HP akan muncul otomatis di daftar.</li>
+                <li>Gunakan alamat di samping, lalu tekan Aktifkan kamera. HP akan muncul otomatis di daftar.</li>
                 <li>Tekan Nyalakan pada kamera yang dipilih dan izinkan akses kamera serta mikrofon di HP.</li>
               </ol>
-              <a className="button button-secondary" href="/downloads/cam-stream-mobile.apk" download>Unduh APK Android</a>
+              <a className="button button-secondary" href="/downloads/cam-stream-mobile.apk?v=2" download>Unduh APK Android</a>
             </div>
             <div className="connection-address">
               <label htmlFor="ws-address">Alamat koneksi HP</label>

@@ -20,3 +20,14 @@ responsive camera-monitoring screen, as requested in the multi-device update.
   actual device list and provides an additional way to distinguish cameras.
 - Cards group one independently controlled physical device. Subtle borders,
   rather than elevated shadows or animation, separate these groups.
+
+## Android controller
+
+The phone screen follows the same light/system-font palette. Larger 16–17sp body
+text and 50–54dp controls make connection settings and background permissions
+readable on the connected Samsung device. A scrollable, keyboard-resizing form
+keeps controls reachable at large system font settings. The status card reports
+the native service state rather than the visibility of the app screen. Battery
+permission has its own section because it is a real prerequisite for reliable
+background operation on restricted devices. Active and error states retain text
+labels; no animation or color-only signal is used.

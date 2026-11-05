@@ -53,15 +53,42 @@ adb push app/build/outputs/apk/release/app-release.apk /sdcard/Download/cam-stre
 
 The local build uses the existing debug signing key, which is excluded from Git.
 For a fresh checkout, provide a local debug keystore or configure a release key.
-Open the app, enter a device name, and register with
-`wss://cam.faeznz.my.id/ws`. Open the dashboard and select Start for that device.
+Open the app, enter a device name and `wss://cam.faeznz.my.id/ws`, then select
+**Aktifkan kamera**. Open the dashboard and select **Nyalakan** for that device.
 Camera/microphone access is required on Android.
+
+### Android background service (1.1)
+
+The native foreground service owns WebSocket signaling, WebRTC capture, and the
+wake lock independently of the React Native screen. It reconnects with a bounded
+1–30 second backoff when signaling drops. The device ID, name, server URL, and
+enabled setting are stored in Android SharedPreferences and survive reopening
+or updating the APK.
+
+- Select **Izinkan berjalan di background** and approve Android's battery dialog.
+  A persistent notification shows the service state and offers **Putuskan**.
+- Leaving the app, swiping its task from recents, or locking the screen does not
+  stop the service. Camera/microphone privacy indicators remain active while
+  capturing. Capturing stops when requested from the dashboard; registration
+  stays connected until explicitly disconnected in the app/notification.
+- `START_STICKY` requests service restoration after system process reclamation.
+  Android schedules that restart; it is not an unconditional uptime guarantee.
+- On Android below 14, the boot receiver requests restoration of an enabled
+  service after boot/unlock. On Android 14+, a notification asks the user to open
+  the app because camera/microphone foreground services cannot be started freely
+  from the background. Reopening restores the saved connection.
+- **Force stop** in Android Settings stops the application until it is opened
+  again. Manufacturer-specific auto-start or battery restrictions can also require
+  device settings. The app exposes the current battery-exemption state.
+
+The background checks were exercised on a Samsung M20 running Android 10.
+Android 14+ boot/background permission behavior still needs a physical-device check.
 
 ## Multiple phones
 
 Select **Tambah HP** in the dashboard to download the Android APK and copy the
 shared WebSocket address. Install the same APK on each phone, choose a recognizable
-name, and select Register. Each phone has a separate device ID and appears in
+name, and select **Aktifkan kamera**. Each phone has a separate device ID and appears in
 the camera grid automatically.
 
 Use **Nyalakan semua** to request all connected cameras at once, or **Nyalakan**

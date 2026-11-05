@@ -159,7 +159,10 @@ wss.on('connection', (ws) => {
       case 'stop-stream': {
         if (data.targetDeviceId && currentDeviceId) {
           if (data.type === 'start-stream') viewers.set(data.targetDeviceId, currentDeviceId)
-          else if (viewers.get(data.targetDeviceId) === currentDeviceId) viewers.delete(data.targetDeviceId)
+          else {
+            if (viewers.get(data.targetDeviceId) !== currentDeviceId) break
+            viewers.delete(data.targetDeviceId)
+          }
           relay(data.targetDeviceId, {
             type: data.type,
             sourceDeviceId: currentDeviceId,

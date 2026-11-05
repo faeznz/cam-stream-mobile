@@ -11,7 +11,7 @@ class MainActivity : ReactActivity() {
   override fun createReactActivityDelegate(): ReactActivityDelegate =
     object : DefaultReactActivityDelegate(this, mainComponentName, false) {
       override fun getLaunchOptions(): Bundle = Bundle().apply {
-        putString("wssUrl", "wss://api.cam.faeznz.my.id/ws")
+        putString("wssUrl", "wss://cam.faeznz.my.id/ws")
       }
     }
 }
