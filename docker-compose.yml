@@ -31,6 +31,8 @@ services:
   host-client:
     image: ghcr.io/faeznz/cam-stream-web:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    volumes:
+      - ./downloads:/usr/share/nginx/html/downloads:ro
     networks: [proxy]
     healthcheck:
       test: [CMD, wget, -q, --spider, http://127.0.0.1/]

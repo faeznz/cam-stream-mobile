@@ -57,12 +57,30 @@ Open the app, enter a device name, and register with
 `wss://cam.faeznz.my.id/ws`. Open the dashboard and select Start for that device.
 Camera/microphone access is required on Android.
 
+## Multiple phones
+
+Select **Tambah HP** in the dashboard to download the Android APK and copy the
+shared WebSocket address. Install the same APK on each phone, choose a recognizable
+name, and select Register. Each phone has a separate device ID and appears in
+the camera grid automatically.
+
+Use **Nyalakan semua** to request all connected cameras at once, or **Nyalakan**
+on an individual card. **Hentikan** affects only that camera; **Hentikan semua**
+stops all requested/live cameras. The dashboard reports connecting, live, and
+failed connections independently for each device. Keep the app available on each
+phone and grant camera/microphone permissions when starting its first stream.
+
+To provide the dashboard APK download, copy the local APK to
+`/home/faeznz/cam-stream-mobile/downloads/cam-stream-mobile.apk` on the VPS.
+Compose mounts that folder read-only into Nginx. APKs are excluded from Git.
+
 ## Smoke check
 
 Run from the repository root with a configured local `.env`:
 
 ```sh
 node scripts/smoke.mjs
+node scripts/multi-device.mjs
 ```
 
 This checks production HTML, authenticated/unauthenticated API responses,
