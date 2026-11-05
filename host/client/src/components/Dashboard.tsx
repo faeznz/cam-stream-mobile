@@ -48,9 +48,7 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
       <main className="dashboard-main">
         <section className="page-heading" aria-labelledby="page-title">
           <div>
-            <p className="section-label">Monitor kamera</p>
-            <h1 id="page-title">Semua sudut, satu layar.</h1>
-            <p className="page-description">Hubungkan HP, lalu pantau kameranya dari sini.</p>
+            <h1 id="page-title">Monitoring menggunakan Kamera HP</h1>
           </div>
           <button className="button button-primary" aria-expanded={adding} aria-controls="add-device" onClick={() => setAdding(!adding)}>
             {adding ? 'Tutup petunjuk' : 'Tambah HP'}
