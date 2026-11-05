@@ -18,6 +18,13 @@ export default function DeviceList({ devices, onAddDevice }: { devices: Device[]
       return Object.fromEntries(Object.entries(saved).filter(([, value]) => typeof value === 'number' && value >= 100 && value <= 250)) as Record<string, number>
     } catch { return {} }
   })
+  const [rotation, setRotation] = useState<Record<string, number>>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('cam_rotation') || '{}')
+      if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return {}
+      return Object.fromEntries(Object.entries(saved).filter(([, value]) => typeof value === 'number' && [0, 90, 180, 270].includes(value))) as Record<string, number>
+    } catch { return {} }
+  })
   const wsRef = useRef<WebSocket | null>(null)
   const peers = useRef(new Map<string, StreamState>())
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
@@ -26,6 +33,10 @@ export default function DeviceList({ devices, onAddDevice }: { devices: Device[]
   useEffect(() => {
     try { localStorage.setItem('cam_brightness', JSON.stringify(brightness)) } catch { /* Brightness still works when browser storage is unavailable. */ }
   }, [brightness])
+
+  useEffect(() => {
+    try { localStorage.setItem('cam_rotation', JSON.stringify(rotation)) } catch { /* Rotation remains available without browser storage. */ }
+  }, [rotation])
 
   function adjustBrightness(id: string, value: number) {
     setBrightness(previous => ({ ...previous, [id]: value }))
@@ -162,11 +173,12 @@ export default function DeviceList({ devices, onAddDevice }: { devices: Device[]
             const status = statuses[device.deviceId] || 'waiting'
             const running = status === 'connecting' || status === 'streaming'
             const level = brightness[device.deviceId] || 100
+            const angle = rotation[device.deviceId] || 0
             return (
               <article className="camera-card" key={device.deviceId} aria-label={`Kamera ${device.name}`}>
                 <div className="camera-card-heading"><div className="camera-identity"><span className="camera-number">{String(index + 1).padStart(2, '0')}</span><h3>{device.name}</h3></div><span className={`camera-status status-${status}`}>{statusLabels[status]}</span></div>
                 <div className="video-stage">
-                  {streams.has(device.deviceId) && <video autoPlay playsInline muted style={{ filter: `brightness(${level / 100})` }} ref={video => { const stream = streams.get(device.deviceId)!.stream; if (video && video.srcObject !== stream) video.srcObject = stream }} aria-label={`Video ${device.name}`} />}
+                  {streams.has(device.deviceId) && <video autoPlay playsInline muted className={angle % 180 ? 'video-quarter-turn' : undefined} style={{ filter: `brightness(${level / 100})`, transform: `translate(-50%, -50%) rotate(${angle}deg)` }} ref={video => { const stream = streams.get(device.deviceId)!.stream; if (video && video.srcObject !== stream) video.srcObject = stream }} aria-label={`Video ${device.name}`} />}
                   {status !== 'streaming' && <div className="video-placeholder"><span className="placeholder-symbol" aria-hidden="true">{status === 'connecting' ? '◌' : '▣'}</span><p>{status === 'connecting' ? 'Menunggu video dari HP…' : status === 'error' ? 'Video belum tersambung' : 'Kamera siap saat Anda butuhkan'}</p><small>{status === 'error' ? 'Pastikan layanan kamera aktif dan izin kamera diberikan.' : status === 'connecting' ? 'Layanan kamera di HP sedang menyiapkan video.' : 'Tekan Nyalakan untuk mulai menonton.'}</small></div>}
                 </div>
                 <div className="camera-enhance">
@@ -178,6 +190,11 @@ export default function DeviceList({ devices, onAddDevice }: { devices: Device[]
                     <button className="button button-secondary enhance-button" aria-label={`Terangkan ${device.name}`} aria-pressed={level > 100} onClick={() => adjustBrightness(device.deviceId, level > 100 ? 100 : 160)}>Terangkan</button>
                     <input id={`brightness-${device.deviceId}`} type="range" min="100" max="250" step="5" value={level} aria-label={`Kecerahan ${device.name}`} aria-valuetext={`${level} persen`} onChange={event => adjustBrightness(device.deviceId, Number(event.target.value))} />
                     <button className="button button-quiet" aria-label={`Reset kecerahan ${device.name}`} disabled={level === 100} onClick={() => adjustBrightness(device.deviceId, 100)}>Reset</button>
+                  </div>
+                  <div className="rotation-controls">
+                    <span>Orientasi <output aria-label={`Orientasi ${device.name}`}>{angle}°</output></span>
+                    <button className="button button-secondary" aria-label={`Putar ${device.name} 90 derajat`} onClick={() => setRotation(previous => ({ ...previous, [device.deviceId]: (angle + 90) % 360 }))}>Putar 90°</button>
+                    <button className="button button-quiet" aria-label={`Reset orientasi ${device.name}`} disabled={angle === 0} onClick={() => setRotation(previous => ({ ...previous, [device.deviceId]: 0 }))}>Reset arah</button>
                   </div>
                 </div>
                 <div className="camera-card-footer"><span className="device-id" title={device.deviceId}>{device.deviceId}</span><button className={`button ${running ? 'button-stop' : 'button-secondary'}`} disabled={!connected} aria-label={`${running ? 'Hentikan' : 'Nyalakan'} ${device.name}`} onClick={() => running ? stopStream(device.deviceId) : startStream(device.deviceId)}>{running ? 'Hentikan' : status === 'error' ? 'Coba lagi' : 'Nyalakan'}</button></div>

@@ -56,7 +56,8 @@ button:disabled { cursor: not-allowed; }
 .status-streaming { color: #166534; }
 .status-error { color: #9f1239; }
 .video-stage { aspect-ratio: 16 / 10; background: #141c29; position: relative; display: flex; align-items: center; justify-content: center; }
-.video-stage video { width: 100%; height: 100%; object-fit: contain; position: absolute; inset: 0; }
+.video-stage video { width: 100%; height: 100%; object-fit: contain; position: absolute; left: 50%; top: 50%; }
+.video-stage video.video-quarter-turn { width: 62.5%; height: 160%; }
 .video-placeholder { position: relative; text-align: center; padding: 20px; color: #e3e9f3; }
 .placeholder-symbol { display: block; font-size: 2rem; line-height: 1; color: #a8b6cc; margin-bottom: 12px; }
 .video-placeholder p { font-size: .875rem; }
@@ -70,6 +71,9 @@ button:disabled { cursor: not-allowed; }
 .enhance-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 0 10px; }
 .enhance-controls input[type="range"] { min-width: 60px; flex: 1; width: 0; min-height: 44px; accent-color: #1d4ed8; cursor: pointer; }
 .enhance-button[aria-pressed="true"] { color: #1e40af; border-color: #1d4ed8; background: #eff6ff; }
+.rotation-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-bottom: 12px; }
+.rotation-controls > span { flex: 1; min-width: 70px; color: #526078; font-size: .75rem; }
+.rotation-controls output { margin-left: 4px; font-variant-numeric: tabular-nums; }
 .empty-state { padding: 56px 20px; background: white; border: 1px dashed #8490a3; border-radius: 12px; text-align: center; }
 .empty-camera { color: #526078; font-size: 2.5rem; margin-bottom: 16px; }
 .empty-state h2, .empty-state h3 { font-size: 1.2rem; font-weight: 600; }

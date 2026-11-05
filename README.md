@@ -109,6 +109,12 @@ the current browser. The filter applies only to the displayed video, so it does
 not restart the stream or alter the phone sensor's exposure. No APK update is
 required for these dashboard controls.
 
+**Putar 90°** cycles the displayed video through 0°, 90°, 180°, and 270°;
+**Reset arah** restores 0°. Orientation is saved separately per camera in the
+browser. The video box swaps dimensions for quarter turns so the full image
+continues to fit without cropping. Rotation and brightness can be combined
+without restarting the connection.
+
 ## Smoke check
 
 Run from the repository root with a configured local `.env`:
