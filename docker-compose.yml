@@ -1,69 +1,71 @@
+name: cam-stream
 services:
-  traefik:
-    image: traefik:v2.11
-    command:
-      - --api.insecure=false
-      - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443
-      - --providers.docker=true
-      - --certificatesresolvers.le.acme.tlschallenge=true
-      - --certificatesresolvers.le.acme.email=admin@faeznz.my.id
-      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./letsencrypt:/letsencrypt
-
   host-server:
-    build: ./host/server
+    image: ghcr.io/faeznz/cam-stream-server:${IMAGE_TAG:-latest}
+    restart: unless-stopped
     environment:
-      - PORT=3000
-      - REDIS_URL=redis://redis:6379
-      - ADMIN_USERNAME=${ADMIN_USERNAME}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
-      - TURN_URL=turn:cam.faeznz.my.id:3478
-      - TURN_USERNAME=${TURN_USERNAME}
-      - TURN_PASSWORD=${TURN_PASSWORD}
-      - VITE_WSS_URL=wss://api.cam.faeznz.my.id/ws
+      PORT: 3000
+      REDIS_URL: redis://redis:6379
+      ADMIN_USERNAME: ${ADMIN_USERNAME:?required}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?required}
+      TURN_URL: turn:${TURN_PUBLIC_IP:-43.133.154.211}:3478
+      TURN_USERNAME: ${TURN_USERNAME:?required}
+      TURN_PASSWORD: ${TURN_PASSWORD:?required}
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks: [default, proxy]
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.host-api.rule=Host(`api.cam.faeznz.my.id`)"
-      - "traefik.http.routers.host-api.entrypoints=websecure"
-      - "traefik.http.routers.host-api.tls.certresolver=le"
-      - "traefik.http.services.host-api.loadbalancer.server.port=3000"
-
+      traefik.enable: "true"
+      traefik.docker.network: traefik-network
+      traefik.http.routers.cam-api.rule: Host(`cam.faeznz.my.id`) && (PathPrefix(`/api/`) || Path(`/ws`))
+      traefik.http.routers.cam-api.priority: "100"
+      traefik.http.routers.cam-api.entrypoints: websecure
+      traefik.http.routers.cam-api.tls.certresolver: myresolver
+      traefik.http.services.cam-api.loadbalancer.server.port: "3000"
   host-client:
-    build: ./host/client
-    environment:
-      - VITE_API_URL=https://api.cam.faeznz.my.id
-      - VITE_WSS_URL=wss://api.cam.faeznz.my.id/ws
-    depends_on:
-      - host-server
+    image: ghcr.io/faeznz/cam-stream-web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    networks: [proxy]
+    healthcheck:
+      test: [CMD, wget, -q, --spider, http://127.0.0.1/]
+      interval: 15s
+      timeout: 5s
+      retries: 5
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.host-web.rule=Host(`cam.faeznz.my.id`)"
-      - "traefik.http.routers.host-web.entrypoints=websecure"
-      - "traefik.http.routers.host-web.tls.certresolver=le"
-      - "traefik.http.services.host-web.loadbalancer.server.port=80"
-
+      traefik.enable: "true"
+      traefik.docker.network: traefik-network
+      traefik.http.routers.cam-web.rule: Host(`cam.faeznz.my.id`)
+      traefik.http.routers.cam-web.priority: "10"
+      traefik.http.routers.cam-web.entrypoints: websecure
+      traefik.http.routers.cam-web.tls.certresolver: myresolver
+      traefik.http.services.cam-web.loadbalancer.server.port: "80"
   redis:
     image: redis:7-alpine
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
-
+    restart: unless-stopped
+    command: [redis-server, --save, "", --appendonly, "no"]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 10s
+      timeout: 3s
+      retries: 5
   coturn:
-    image: coturn/coturn:4.5.2
-    command: sh /etc/coturn/docker-entrypoint.sh
-    ports:
-      - "3478:3478/udp"
-      - "3478:3478/tcp"
-      - "5349:5349/udp"
-      - "5349:5349/tcp"
+    image: coturn/coturn:4.6.3
+    restart: unless-stopped
+    network_mode: host
+    entrypoint: [/bin/sh, /etc/coturn/docker-entrypoint.sh]
     volumes:
       - ./coturn/docker-entrypoint.sh:/etc/coturn/docker-entrypoint.sh:ro
     environment:
-      - TURN_USER=${TURN_USERNAME}
-      - TURN_PASS=${TURN_PASSWORD}
+      TURN_USERNAME: ${TURN_USERNAME:?required}
+      TURN_PASSWORD: ${TURN_PASSWORD:?required}
+      TURN_PUBLIC_IP: ${TURN_PUBLIC_IP:-43.133.154.211}
+networks:
+  proxy:
+    external: true
+    name: traefik-network

@@ -3,7 +3,8 @@ import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native'
 
 export default function RegisterScreen({ navigation, wsRef }: any) {
   const [deviceName, setDeviceName] = useState('')
-  const [wssUrl, setWssUrl] = useState('wss://api.cam.faeznz.my.id/ws')
+  const [wssUrl, setWssUrl] = useState('wss://cam.faeznz.my.id/ws')
+  const iceServers = useRef<any[]>([])
   const deviceId = useRef('device-' + Math.random().toString(36).slice(2, 10)).current
 
   useEffect(() => {
@@ -26,6 +27,10 @@ export default function RegisterScreen({ navigation, wsRef }: any) {
     wsRef.current?.close()
     const ws = new WebSocket(url)
     wsRef.current = ws
+    const heartbeat = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping' }))
+    }, 30000)
+    ws.onclose = () => clearInterval(heartbeat)
 
     ws.onopen = () => {
       ws.send(JSON.stringify({ type: 'register', deviceId, name: deviceName.trim() }))
@@ -34,8 +39,9 @@ export default function RegisterScreen({ navigation, wsRef }: any) {
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data)
+        if (msg.type === 'registered') iceServers.current = msg.iceServers
         if (msg.type === 'start-stream' && msg.targetDeviceId) {
-          navigation.navigate('Stream', { deviceId, wssUrl: url })
+          navigation.navigate('Stream', { deviceId, wssUrl: url, iceServers: iceServers.current })
         }
       } catch (error) {
         console.error('Invalid signaling message', error)

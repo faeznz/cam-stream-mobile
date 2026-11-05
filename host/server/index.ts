@@ -1,7 +1,8 @@
 import { Hono } from 'hono'
-import { serve } from '@hono/node-server'
-import { WebSocketServer } from 'ws'
-import { createClient } from 'redis'
+import { getRequestListener } from '@hono/node-server'
+import { WebSocket, WebSocketServer } from 'ws'
+import Redis from 'ioredis'
+import { createServer } from 'node:http'
 
 const app = new Hono()
 
@@ -13,8 +14,12 @@ const TURN_URL = process.env.TURN_URL || 'turn:cam.faeznz.my.id:3478'
 const TURN_USERNAME = process.env.TURN_USERNAME || 'turnuser'
 const TURN_PASSWORD = process.env.TURN_PASSWORD || 'turnpass123'
 
-const redis = createClient({ url: REDIS_URL })
-redis.connect().catch(console.error)
+const redis = new Redis(REDIS_URL)
+redis.on('error', console.error)
+const iceServers = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: TURN_URL, username: TURN_USERNAME, credential: TURN_PASSWORD },
+]
 
 interface Device {
   deviceId: string
@@ -39,6 +44,10 @@ app.use('/api/*', async (c, next) => {
 
 // --- Routes ---
 app.get('/', (c) => c.json({ status: 'ok', service: 'host-server' }))
+app.get('/health', async (c) => {
+  await redis.ping()
+  return c.json({ status: 'ok' })
+})
 
 app.get('/api/devices', async (c) => {
   const keys = await redis.keys('device:*')
@@ -67,8 +76,9 @@ app.get('/api/turn', (c) => {
 })
 
 // --- WebSocket Signaling ---
-const httpServer = serve({ fetch: app.fetch, port: PORT })
-const wss = new WebSocketServer({ server: httpServer })
+const httpServer = createServer(getRequestListener(app.fetch))
+httpServer.listen(PORT)
+const wss = new WebSocketServer({ server: httpServer, path: '/ws' })
 
 type Client = {
   ws: WebSocket
@@ -99,13 +109,15 @@ wss.on('connection', (ws) => {
       case 'register': {
         currentDeviceId = data.deviceId
         clients.set(data.deviceId, { ws, deviceId: data.deviceId })
+        ws.send(JSON.stringify({ type: 'registered', iceServers }))
+        if (data.deviceId === 'host-frontend') break
 
         const device: Device = {
           deviceId: data.deviceId,
           name: data.name || data.deviceId,
           registeredAt: Date.now(),
         }
-        void redis.set(`device:${data.deviceId}`, JSON.stringify(device))
+        void redis.set(`device:${data.deviceId}`, JSON.stringify(device), 'EX', 120)
         break
       }
 
@@ -135,6 +147,7 @@ wss.on('connection', (ws) => {
       }
 
       case 'ping':
+        if (currentDeviceId && currentDeviceId !== 'host-frontend') void redis.expire(`device:${currentDeviceId}`, 120)
         ws.send(JSON.stringify({ type: 'pong' }))
         break
 
@@ -145,6 +158,7 @@ wss.on('connection', (ws) => {
 
   ws.on('close', () => {
     if (currentDeviceId) {
+      if (clients.get(currentDeviceId)?.ws !== ws) return
       clients.delete(currentDeviceId)
       void redis.del(`device:${currentDeviceId}`)
     }
@@ -152,6 +166,7 @@ wss.on('connection', (ws) => {
 
   ws.on('error', () => {
     if (currentDeviceId) {
+      if (clients.get(currentDeviceId)?.ws !== ws) return
       clients.delete(currentDeviceId)
       void redis.del(`device:${currentDeviceId}`)
     }

@@ -4,9 +4,12 @@ import DeviceList from './DeviceList'
 export default function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [devices, setDevices] = useState<Array<{ deviceId: string; name: string }>>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     loadDevices()
+    const timer = setInterval(loadDevices, 5000)
+    return () => clearInterval(timer)
   }, [])
 
   async function loadDevices() {
@@ -16,7 +19,7 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
       return
     }
     try {
-      const res = await fetch(import.meta.env.VITE_API_URL + '/api/devices', {
+      const res = await fetch('/api/devices', {
         headers: { Authorization: `Basic ${auth}` },
       })
       if (res.status === 401) {
@@ -24,10 +27,12 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
         onLogout()
         return
       }
+      if (!res.ok) throw new Error('Failed to load devices')
       const data = await res.json()
+      setError('')
       setDevices(data.devices || [])
     } catch {
-      // ignore
+      setError('Failed to load devices. Retrying...')
     } finally {
       setLoading(false)
     }
@@ -48,6 +53,7 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
         </button>
       </div>
 
+      {error && <p role="alert">{error}</p>}
       {loading ? (
         <div className="text-gray-500">Loading devices...</div>
       ) : devices.length === 0 ? (

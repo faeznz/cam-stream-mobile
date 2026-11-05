@@ -10,19 +10,16 @@ interface StreamState {
   stream: MediaStream
 }
 
-const TURN_CONFIG = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'turn:cam.faeznz.my.id:3478', username: 'turnuser', credential: 'turnpass123' },
-  ],
-}
-
 export default function DeviceList({ devices }: { devices: Device[] }) {
   const [streams, setStreams] = useState<Map<string, StreamState>>(new Map())
   const wsRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
-    const ws = new WebSocket(import.meta.env.VITE_WSS_URL)
+    const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`)
+    let iceServers: RTCIceServer[] = []
+    const heartbeat = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping' }))
+    }, 30000)
     wsRef.current = ws
     const pcMap = new Map<string, StreamState>()
 
@@ -40,11 +37,14 @@ export default function DeviceList({ devices }: { devices: Device[] }) {
       }
 
       switch (msg.type) {
+        case 'registered':
+          iceServers = msg.iceServers
+          break
         case 'offer': {
           const { sourceDeviceId, sdp } = msg
           if (!sourceDeviceId || !sdp) return
 
-          const pc = new RTCPeerConnection(TURN_CONFIG)
+          const pc = new RTCPeerConnection({ iceServers })
           const stream = new MediaStream()
           pcMap.set(sourceDeviceId, { pc, stream })
           setStreams((prev) => new Map(prev).set(sourceDeviceId, { pc, stream }))
@@ -94,6 +94,7 @@ export default function DeviceList({ devices }: { devices: Device[] }) {
     }
 
     return () => {
+      clearInterval(heartbeat)
       ws.close()
       pcMap.forEach((state) => {
         state.pc.close()
@@ -145,7 +146,7 @@ export default function DeviceList({ devices }: { devices: Device[] }) {
                 playsInline
                 muted
                 className="w-full h-full object-cover"
-                srcObject={streams.get(device.deviceId)!.stream}
+                ref={(video) => { if (video) video.srcObject = streams.get(device.deviceId)!.stream }}
               />
             ) : (
               <span className="text-gray-400 text-sm">Waiting for stream...</span>

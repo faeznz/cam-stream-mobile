@@ -11,7 +11,7 @@ export default function LoginForm({ onLogin }: { onLogin: () => void }) {
 
     const creds = btoa(`${username}:${password}`)
     try {
-      const res = await fetch(import.meta.env.VITE_API_URL + '/api/devices', {
+      const res = await fetch('/api/devices', {
         headers: { Authorization: `Basic ${creds}` },
       })
       if (res.status === 401) {

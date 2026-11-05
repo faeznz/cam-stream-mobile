@@ -5,7 +5,7 @@ import {
 } from 'react-native-webrtc'
 
 export default function StreamScreen({ route, navigation, wsRef }: any) {
-  const { deviceId, wssUrl } = route.params
+  const { deviceId, wssUrl, iceServers } = route.params
   const ws = wsRef.current as WebSocket | null
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
   const [status, setStatus] = useState('Connecting...')
@@ -50,10 +50,7 @@ export default function StreamScreen({ route, navigation, wsRef }: any) {
         }
         setLocalStream(stream)
         pc = new RTCPeerConnection({
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'turn:cam.faeznz.my.id:3478', username: 'turnuser', credential: 'turnpass123' },
-          ],
+          iceServers,
         })
         stream.getTracks().forEach((track) => pc!.addTrack(track, stream!))
         pc.addEventListener('icecandidate', (event: any) => {
